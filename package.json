@@ -1,0 +1,20 @@
+{
+  "name": "school-audit-bot",
+  "version": "1.0.0",
+  "description": "Telegram-бот для комплексного AI-аудита онлайн-школ (Telegraf + Anthropic API + PDF-отчёт на email)",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "dotenv": "^16.4.5",
+    "markdown-it": "^14.1.0",
+    "nodemailer": "^6.9.15",
+    "puppeteer": "^23.6.0",
+    "telegraf": "^4.16.3"
+  }
+}
