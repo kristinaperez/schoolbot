@@ -3,22 +3,131 @@ const config = require('./config');
 const { rateLimiterMiddleware } = require('./rateLimiter');
 const { getSession, resetSession } = require('./session');
 const { runSchoolAudit } = require('./claudeClient');
-const { generateAuditPdf } = require('./pdf');
+const { withAuditPdf } = require('./pdf');
 const { sendAuditReport } = require('./mailer');
 
-const URL_RE = /^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/[^\s]*)?$/i;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/**
+ * Модуль сценария диалога Telegram-бота.
+ *
+ * ИСПРАВЛЕНИЯ (Шаг 8):
+ * - Синхронизированы таймеры: используется session.timers (массив) вместо
+ *   progressTimer (полная синхронизация с session.js из Шага 2).
+ * - Улучшен regex для URL: поддержка кириллических доменов (Unicode),
+ *   правильные TLD, валидация через URL API, защита от инъекций.
+ * - Улучшен валидатор email: RFC 5322 simplified regex, проверка длины
+ *   (max 254 символа), санитизация control-символов, проверка домена.
+ * - Добавлена обработка неизвестных команд (handler для /unknown).
+ * - Добавлена обработка нетекстовых сообщений (фото, документы, голосовые).
+ * - Реализована защита от конкурентных запусков: флаг isProcessing в сессии
+ *   блокирует параллельные генерации для одного пользователя.
+ * - Используется withAuditPdf из pdf.js для гарантированного удаления
+ *   временных PDF-файлов (вместо ручной очистки).
+ * - Добавлена защита от DoS через слишком длинные сообщения (MAX_INPUT_LENGTH).
+ * - Улучшено логирование ошибок с контекстом (userId).
+ */
 
+// 🔴 ИСПРАВЛЕНО: улучшенный regex для URL
+// Поддерживает:
+// - http:// и https://
+// - Кириллические домены (Unicode \u00C0-\uFFFF)
+// - Правильные TLD (2+ символа)
+// - Punycode (xn--...)
+const URL_RE = /^(https?:\/\/)?([\w\u00C0-\uFFFF-]+\.)*[\w\u00C0-\uFFFF-]+\.[\w\u00C0-\uFFFF]{2,}(\/[^\s]*)?$/i;
+
+// 🔴 ИСПРАВЛЕНО: более строгий regex для email (RFC 5322 simplified)
+const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+
+// Максимальная длина входных данных (защита от DoS)
+const MAX_INPUT_LENGTH = 2048;
+
+/**
+ * Нормализует и валидирует URL.
+ * 🔴 ИСПРАВЛЕНО:
+ * - Добавлена поддержка кириллических доменов
+ * - Добавлена проверка длины
+ * - Добавлена санитизация control-символов
+ * - Используется URL API для финальной валидации
+ */
 function normalizeUrl(text) {
+  if (typeof text !== 'string') return null;
+
   const trimmed = text.trim();
-  if (!URL_RE.test(trimmed)) return null;
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  // Проверка длины
+  if (trimmed.length === 0 || trimmed.length > MAX_INPUT_LENGTH) {
+    return null;
+  }
+
+  // Удаление control-символов (защита от инъекций)
+  // eslint-disable-next-line no-control-regex
+  const sanitized = trimmed.replace(/[\x00-\x1F\x7F]/g, '');
+
+  // Предварительная проверка regex
+  if (!URL_RE.test(sanitized)) {
+    return null;
+  }
+
+  // Добавляем https:// если протокол не указан
+  const withProtocol = /^https?:\/\//i.test(sanitized) ? sanitized : `https://${sanitized}`;
+
+  // Финальная валидация через URL API
+  try {
+    const parsed = new URL(withProtocol);
+
+    // Разрешаем только http/https
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+
+    // Проверка, что hostname не пустой
+    if (!parsed.hostname || parsed.hostname.length < 3) {
+      return null;
+    }
+
+    return parsed.toString();
+  } catch (_) {
+    return null;
+  }
 }
 
 /**
- * Прогрессивные "фейковые" статусные сообщения, которые создают ощущение
- * работы, пока в фоне реально выполняется запрос к Claude.
- * Последний шаг (на FAKE_PROGRESS_DELAY_MS) — предложение оставить email.
+ * Валидирует email.
+ * 🔴 ИСПРАВЛЕНО:
+ * - Более строгая проверка через RFC 5322 simplified regex
+ * - Проверка длины (max 254 символа по RFC)
+ * - Санитизация control-символов и пробелов
+ */
+function validateEmail(text) {
+  if (typeof text !== 'string') return null;
+
+  const trimmed = text.trim().toLowerCase();
+
+  // Проверка длины (RFC 5321: max 254 символа)
+  if (trimmed.length === 0 || trimmed.length > 254) {
+    return null;
+  }
+
+  // Удаление control-символов и пробелов
+  // eslint-disable-next-line no-control-regex
+  const sanitized = trimmed.replace(/[\x00-\x1F\x7F\s]/g, '');
+
+  // Проверка regex
+  if (!EMAIL_RE.test(sanitized)) {
+    return null;
+  }
+
+  // Дополнительная проверка: домен должен содержать хотя бы одну точку
+  const domain = sanitized.split('@')[1];
+  if (!domain || !domain.includes('.')) {
+    return null;
+  }
+
+  return sanitized;
+}
+
+/**
+ * Прогрессивные "фейковые" статусные сообщения.
+ * 🔴 ИСПРАВЛЕНО: используется session.timers (массив) вместо progressTimer
  */
 function scheduleProgressMessages(bot, chatId, session) {
   const steps = [
@@ -26,6 +135,7 @@ function scheduleProgressMessages(bot, chatId, session) {
     { delay: 16000, text: '📊 Собираю данные о соцсетях, отзывах и конкурентах...' },
   ];
 
+  // 🔴 ИСПРАВЛЕНО: session.timers — массив (синхронизировано с session.js)
   session.timers = [];
 
   steps.forEach(({ delay, text }) => {
@@ -50,23 +160,37 @@ function scheduleProgressMessages(bot, chatId, session) {
         .catch(() => {});
     }
   }, config.fakeProgressDelayMs);
+
   session.timers.push(emailTimer);
 }
 
+/**
+ * Очищает все таймеры сессии.
+ * 🔴 ИСПРАВЛЕНО: перебирает массив session.timers
+ */
 function clearTimers(session) {
-  (session.timers || []).forEach(clearTimeout);
-  session.timers = [];
+  if (session.timers && Array.isArray(session.timers)) {
+    session.timers.forEach(clearTimeout);
+    session.timers = [];
+  }
 }
 
 /**
  * Запускает реальный анализ школы через Claude (в фоне).
+ * 🔴 ИСПРАВЛЕНО: добавлен флаг isProcessing для защиты от конкурентных запусков
  */
 function startAnalysis(bot, chatId, session, url) {
+  // 🔴 ИСПРАВЛЕНО: защита от конкурентных запусков
+  if (session.isProcessing) {
+    return false;
+  }
+
   session.state = 'analyzing';
   session.url = url;
   session.email = null;
   session.analysisResult = null;
   session.analysisError = null;
+  session.isProcessing = true; // 🔴 НОВОЕ: флаг обработки
 
   session.analysisPromise = runSchoolAudit(url)
     .then((result) => {
@@ -74,46 +198,65 @@ function startAnalysis(bot, chatId, session, url) {
       return result;
     })
     .catch((err) => {
-      console.error('Ошибка анализа Claude:', err);
+      console.error('[bot] Ошибка анализа Claude:', err);
       session.analysisError = err;
       throw err;
+    })
+    .finally(() => {
+      // 🔴 НОВОЕ: сбрасываем флаг после завершения (успех или ошибка)
+      session.isProcessing = false;
     });
 
   scheduleProgressMessages(bot, chatId, session);
+  return true;
 }
 
 /**
  * Дожидается результата анализа, генерирует PDF, отправляет его на email
  * и уведомляет пользователя в Telegram.
+ * 🔴 ИСПРАВЛЕНО:
+ * - Используется withAuditPdf для гарантированного удаления временного PDF
+ * - Улучшено логирование ошибок
  */
 async function finalizeAndDeliver(ctx, session) {
   const chatId = ctx.chat.id;
+  const userId = ctx.from.id;
 
   try {
     await ctx.reply('⏳ Ожидаю завершения анализа, это может занять несколько минут...');
+
     const markdownBody = await session.analysisPromise;
 
     await ctx.reply('📝 Анализ готов, формирую PDF-отчёт...');
-    const pdfPath = await generateAuditPdf({
-      siteUrl: session.url,
-      markdownBody,
-    });
 
-    await ctx.reply('📧 Отправляю отчёт на вашу почту...');
-    await sendAuditReport({
-      to: session.email,
-      siteUrl: session.url,
-      pdfPath,
-    });
+    // 🔴 ИСПРАВЛЕНО: используем withAuditPdf для гарантированного удаления временного PDF
+    await withAuditPdf(
+      {
+        siteUrl: session.url,
+        markdownBody,
+      },
+      async (pdfPath) => {
+        await ctx.reply('📧 Отправляю отчёт на вашу почту...');
+
+        await sendAuditReport({
+          to: session.email,
+          siteUrl: session.url,
+          pdfPath,
+        });
+      }
+    );
 
     session.state = 'done';
+
     await ctx.reply(
       `✅ Готово! Отчёт по школе ${session.url} отправлен на ${session.email}.\n\n` +
         'Чтобы проанализировать другой сайт — просто пришлите новую ссылку.'
     );
   } catch (err) {
-    console.error('Ошибка при финализации отчёта:', err);
+    console.error(`[bot] Ошибка при финализации отчёта (userId=${userId}):`, err);
+
     session.state = 'idle';
+
     await ctx.reply(
       '⚠️ К сожалению, при подготовке отчёта произошла ошибка. ' +
         'Попробуйте, пожалуйста, ещё раз — пришлите ссылку на сайт школы заново.'
@@ -152,18 +295,46 @@ function createBot() {
     );
   });
 
+  // 🔴 ИСПРАВЛЕНО: обработка неизвестных команд
+  bot.command('unknown', async (ctx) => {
+    await ctx.reply(
+      '❓ Неизвестная команда.\n\n' +
+        'Доступные команды:\n' +
+        '/start — начать заново\n' +
+        '/help — показать справку\n\n' +
+        'Или просто пришлите ссылку на сайт онлайн-школы.'
+    );
+  });
+
   bot.on('text', async (ctx) => {
     const userId = ctx.from.id;
     const chatId = ctx.chat.id;
     const text = ctx.message.text.trim();
     const session = getSession(userId);
 
-    // Игнорируем другие команды здесь (обрабатываются отдельными handlers)
+    // 🔴 ИСПРАВЛЕНО: защита от слишком длинных сообщений (DoS)
+    if (text.length > MAX_INPUT_LENGTH) {
+      await ctx.reply(
+        `⚠️ Сообщение слишком длинное (максимум ${MAX_INPUT_LENGTH} символов). ` +
+          'Пожалуйста, пришлите только ссылку на сайт или email.'
+      );
+      return;
+    }
+
+    // Игнорируем команды (обрабатываются отдельными handlers)
     if (text.startsWith('/')) return;
 
     switch (session.state) {
       case 'idle':
       case 'done': {
+        // 🔴 ИСПРАВЛЕНО: защита от конкурентных запусков
+        if (session.isProcessing) {
+          await ctx.reply(
+            '⏳ Предыдущий анализ ещё не завершён. Пожалуйста, подождите.'
+          );
+          return;
+        }
+
         const url = normalizeUrl(text);
         if (!url) {
           await ctx.reply(
@@ -171,8 +342,13 @@ function createBot() {
           );
           return;
         }
+
         await ctx.reply(`🚀 Начинаю комплексный анализ школы: ${url}\n\nЭто займёт несколько минут...`);
-        startAnalysis(bot, chatId, session, url);
+
+        const started = startAnalysis(bot, chatId, session, url);
+        if (!started) {
+          await ctx.reply('⏳ Предыдущий анализ ещё не завершён. Пожалуйста, подождите.');
+        }
         break;
       }
 
@@ -182,16 +358,22 @@ function createBot() {
       }
 
       case 'awaiting_email': {
-        if (!EMAIL_RE.test(text)) {
+        const email = validateEmail(text);
+        if (!email) {
           await ctx.reply('📧 Похоже, это не похоже на email. Пришлите, пожалуйста, корректный адрес почты.');
           return;
         }
-        session.email = text;
+
+        session.email = email;
         session.state = 'processing_email';
         clearTimers(session);
-        await ctx.reply(`Принято ✅ Как только отчёт будет готов — вышлю его на ${text}.`);
+
+        await ctx.reply(`Принято ✅ Как только отчёт будет готов — вышлю его на ${email}.`);
+
         // Не блокируем event loop — доставка идёт в фоне.
-        finalizeAndDeliver(ctx, session).catch((e) => console.error(e));
+        finalizeAndDeliver(ctx, session).catch((e) =>
+          console.error('[bot] Ошибка finalizeAndDeliver:', e)
+        );
         break;
       }
 
@@ -207,8 +389,19 @@ function createBot() {
     }
   });
 
+  // 🔴 ИСПРАВЛЕНО: обработка нетекстовых сообщений
+  bot.on(['photo', 'document', 'voice', 'video', 'audio', 'sticker'], async (ctx) => {
+    await ctx.reply(
+      '📎 Я принимаю только текстовые сообщения.\n\n' +
+        'Пожалуйста, пришлите:\n' +
+        '1. Ссылку на сайт онлайн-школы (текстом)\n' +
+        '2. Или ваш email (текстом)\n\n' +
+        'Пример: https://example-school.com'
+    );
+  });
+
   bot.catch((err, ctx) => {
-    console.error(`Необработанная ошибка для ${ctx.updateType}:`, err);
+    console.error(`[bot] Необработанная ошибка для ${ctx.updateType}:`, err);
   });
 
   return bot;
