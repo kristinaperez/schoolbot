@@ -46,10 +46,11 @@ function getSession(userId) {
       state: 'idle',
       url: null,
       email: null,
+      savedEmail: null, // 🔴 НОВОЕ: для запоминания email пользователя между запусками
       analysisPromise: null,
       analysisResult: null,
       analysisError: null,
-      timers: [], // 🔴 ИСПРАВЛЕНО: синхронизировано с bot.js (было progressTimer: null)
+      timers: [],
       lastAccessed: Date.now(),
     });
   } else {
@@ -63,20 +64,25 @@ function getSession(userId) {
 /**
  * Сбрасывает сессию пользователя в начальное состояние.
  * Гарантирует очистку всех активных таймеров, чтобы избежать утечек и фантомных сообщений.
+ * ВАЖНО: сохраняет savedEmail, чтобы пользователю не приходилось вводить его заново.
  * @param {number|string} userId 
  */
 function resetSession(userId) {
   const s = sessions.get(userId);
   if (s) {
-    // 🔴 ИСПРАВЛЕНО: очистка массива таймеров вместо одиночного progressTimer
+    // 🔴 ИСПРАВЛЕНО: очистка массива таймеров
     if (s.timers && Array.isArray(s.timers)) {
       s.timers.forEach(clearTimeout);
     }
     
+    // 🔴 НОВОЕ: сохраняем email перед сбросом, чтобы восстановить его
+    const savedEmail = s.savedEmail;
+
     sessions.set(userId, {
       state: 'idle',
       url: null,
-      email: null,
+      email: null, // текущий email для активного аудита сбрасывается
+      savedEmail: savedEmail, // восстанавливаем запомненный email
       analysisPromise: null,
       analysisResult: null,
       analysisError: null,

@@ -9,29 +9,20 @@ const { sendAuditReport } = require('./mailer');
 /**
  * Модуль сценария диалога Telegram-бота.
  *
- * ИСПРАВЛЕНИЯ (Шаг 8):
- * - Синхронизированы таймеры: используется session.timers (массив) вместо
- *   progressTimer (полная синхронизация с session.js из Шага 2).
- * - Улучшен regex для URL: поддержка кириллических доменов (Unicode),
- *   правильные TLD, валидация через URL API, защита от инъекций.
- * - Улучшен валидатор email: RFC 5322 simplified regex, проверка длины
- *   (max 254 символа), санитизация control-символов, проверка домена.
- * - Добавлена обработка неизвестных команд (handler для /unknown).
- * - Добавлена обработка нетекстовых сообщений (фото, документы, голосовые).
- * - Реализована защита от конкурентных запусков: флаг isProcessing в сессии
- *   блокирует параллельные генерации для одного пользователя.
- * - Используется withAuditPdf из pdf.js для гарантированного удаления
- *   временных PDF-файлов (вместо ручной очистки).
- * - Добавлена защита от DoS через слишком длинные сообщения (MAX_INPUT_LENGTH).
- * - Улучшено логирование ошибок с контекстом (userId).
+ * ИСПРАВЛЕНИЯ И УЛУЧШЕНИЯ:
+ * - Синхронизированы таймеры: используется session.timers (массив).
+ * - Улучшен regex для URL: поддержка кириллических доменов, правильные TLD.
+ * - Улучшен валидатор email: RFC 5322 simplified, проверка длины и домена.
+ * - Добавлена обработка неизвестных команд и нетекстовых сообщений.
+ * - Реализована защита от конкурентных запусков (флаг isProcessing).
+ * - Используется withAuditPdf для гарантированного удаления временных PDF.
+ * - Добавлена защита от DoS (MAX_INPUT_LENGTH).
+ * - 🔴 НОВОЕ: Умная логика email. Бот запоминает email (savedEmail) и при 
+ *   следующем запуске предлагает использовать его, чтобы пользователю не 
+ *   приходилось вводить его заново.
  */
 
-// 🔴 ИСПРАВЛЕНО: улучшенный regex для URL
-// Поддерживает:
-// - http:// и https://
-// - Кириллические домены (Unicode \u00C0-\uFFFF)
-// - Правильные TLD (2+ символа)
-// - Punycode (xn--...)
+// 🔴 ИСПРАВЛЕНО: улучшенный regex для URL (кириллица, punycode, правильные TLD)
 const URL_RE = /^(https?:\/\/)?([\w\u00C0-\uFFFF-]+\.)*[\w\u00C0-\uFFFF-]+\.[\w\u00C0-\uFFFF]{2,}(\/[^\s]*)?$/i;
 
 // 🔴 ИСПРАВЛЕНО: более строгий regex для email (RFC 5322 simplified)
@@ -42,48 +33,26 @@ const MAX_INPUT_LENGTH = 2048;
 
 /**
  * Нормализует и валидирует URL.
- * 🔴 ИСПРАВЛЕНО:
- * - Добавлена поддержка кириллических доменов
- * - Добавлена проверка длины
- * - Добавлена санитизация control-символов
- * - Используется URL API для финальной валидации
  */
 function normalizeUrl(text) {
   if (typeof text !== 'string') return null;
 
   const trimmed = text.trim();
-
-  // Проверка длины
-  if (trimmed.length === 0 || trimmed.length > MAX_INPUT_LENGTH) {
-    return null;
-  }
+  if (trimmed.length === 0 || trimmed.length > MAX_INPUT_LENGTH) return null;
 
   // Удаление control-символов (защита от инъекций)
   // eslint-disable-next-line no-control-regex
   const sanitized = trimmed.replace(/[\x00-\x1F\x7F]/g, '');
 
-  // Предварительная проверка regex
-  if (!URL_RE.test(sanitized)) {
-    return null;
-  }
+  if (!URL_RE.test(sanitized)) return null;
 
   // Добавляем https:// если протокол не указан
   const withProtocol = /^https?:\/\//i.test(sanitized) ? sanitized : `https://${sanitized}`;
 
-  // Финальная валидация через URL API
   try {
     const parsed = new URL(withProtocol);
-
-    // Разрешаем только http/https
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return null;
-    }
-
-    // Проверка, что hostname не пустой
-    if (!parsed.hostname || parsed.hostname.length < 3) {
-      return null;
-    }
-
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    if (!parsed.hostname || parsed.hostname.length < 3) return null;
     return parsed.toString();
   } catch (_) {
     return null;
@@ -92,42 +61,28 @@ function normalizeUrl(text) {
 
 /**
  * Валидирует email.
- * 🔴 ИСПРАВЛЕНО:
- * - Более строгая проверка через RFC 5322 simplified regex
- * - Проверка длины (max 254 символа по RFC)
- * - Санитизация control-символов и пробелов
  */
 function validateEmail(text) {
   if (typeof text !== 'string') return null;
 
   const trimmed = text.trim().toLowerCase();
-
-  // Проверка длины (RFC 5321: max 254 символа)
-  if (trimmed.length === 0 || trimmed.length > 254) {
-    return null;
-  }
+  if (trimmed.length === 0 || trimmed.length > 254) return null;
 
   // Удаление control-символов и пробелов
   // eslint-disable-next-line no-control-regex
   const sanitized = trimmed.replace(/[\x00-\x1F\x7F\s]/g, '');
 
-  // Проверка regex
-  if (!EMAIL_RE.test(sanitized)) {
-    return null;
-  }
+  if (!EMAIL_RE.test(sanitized)) return null;
 
   // Дополнительная проверка: домен должен содержать хотя бы одну точку
   const domain = sanitized.split('@')[1];
-  if (!domain || !domain.includes('.')) {
-    return null;
-  }
+  if (!domain || !domain.includes('.')) return null;
 
   return sanitized;
 }
 
 /**
  * Прогрессивные "фейковые" статусные сообщения.
- * 🔴 ИСПРАВЛЕНО: используется session.timers (массив) вместо progressTimer
  */
 function scheduleProgressMessages(bot, chatId, session) {
   const steps = [
@@ -135,7 +90,6 @@ function scheduleProgressMessages(bot, chatId, session) {
     { delay: 16000, text: '📊 Собираю данные о соцсетях, отзывах и конкурентах...' },
   ];
 
-  // 🔴 ИСПРАВЛЕНО: session.timers — массив (синхронизировано с session.js)
   session.timers = [];
 
   steps.forEach(({ delay, text }) => {
@@ -150,14 +104,15 @@ function scheduleProgressMessages(bot, chatId, session) {
   const emailTimer = setTimeout(() => {
     if (session.state === 'analyzing') {
       session.state = 'awaiting_email';
-      bot.telegram
-        .sendMessage(
-          chatId,
-          '📩 Анализ продолжается в фоне — он занимает несколько минут.\n\n' +
-            'Оставьте, пожалуйста, ваш email — как только отчёт будет готов, ' +
-            'мы вышлем его вам в виде PDF.'
-        )
-        .catch(() => {});
+      
+      // 🔴 УМНАЯ ЛОГИКА: если email уже сохранен, предлагаем использовать его
+      let promptText = '📩 Анализ продолжается в фоне — он занимает несколько минут.\n\nОставьте, пожалуйста, ваш email — как только отчёт будет готов, мы вышлем его вам в виде PDF.';
+      
+      if (session.savedEmail) {
+        promptText = `📩 Анализ продолжается в фоне.\n\nОтправить готовый PDF-отчёт на ваш сохраненный email: \n📧 *${session.savedEmail}*?\n\nНапишите "Да" или введите новый email.`;
+      }
+
+      bot.telegram.sendMessage(chatId, promptText, { parse_mode: 'Markdown' }).catch(() => {});
     }
   }, config.fakeProgressDelayMs);
 
@@ -166,7 +121,6 @@ function scheduleProgressMessages(bot, chatId, session) {
 
 /**
  * Очищает все таймеры сессии.
- * 🔴 ИСПРАВЛЕНО: перебирает массив session.timers
  */
 function clearTimers(session) {
   if (session.timers && Array.isArray(session.timers)) {
@@ -177,7 +131,6 @@ function clearTimers(session) {
 
 /**
  * Запускает реальный анализ школы через Claude (в фоне).
- * 🔴 ИСПРАВЛЕНО: добавлен флаг isProcessing для защиты от конкурентных запусков
  */
 function startAnalysis(bot, chatId, session, url) {
   // 🔴 ИСПРАВЛЕНО: защита от конкурентных запусков
@@ -187,10 +140,10 @@ function startAnalysis(bot, chatId, session, url) {
 
   session.state = 'analyzing';
   session.url = url;
-  session.email = null;
+  session.email = null; // Сбрасываем текущий email аудита
   session.analysisResult = null;
   session.analysisError = null;
-  session.isProcessing = true; // 🔴 НОВОЕ: флаг обработки
+  session.isProcessing = true;
 
   session.analysisPromise = runSchoolAudit(url)
     .then((result) => {
@@ -203,7 +156,6 @@ function startAnalysis(bot, chatId, session, url) {
       throw err;
     })
     .finally(() => {
-      // 🔴 НОВОЕ: сбрасываем флаг после завершения (успех или ошибка)
       session.isProcessing = false;
     });
 
@@ -214,12 +166,8 @@ function startAnalysis(bot, chatId, session, url) {
 /**
  * Дожидается результата анализа, генерирует PDF, отправляет его на email
  * и уведомляет пользователя в Telegram.
- * 🔴 ИСПРАВЛЕНО:
- * - Используется withAuditPdf для гарантированного удаления временного PDF
- * - Улучшено логирование ошибок
  */
 async function finalizeAndDeliver(ctx, session) {
-  const chatId = ctx.chat.id;
   const userId = ctx.from.id;
 
   try {
@@ -275,14 +223,21 @@ function createBot() {
   bot.use(rateLimiterMiddleware());
 
   bot.start(async (ctx) => {
-    resetSession(ctx.from.id);
-    await ctx.reply(
-      '👋 Привет! Я AI-аудитор онлайн-школ.\n\n' +
-        'Пришлите мне ссылку на сайт онлайн-школы — и я проведу комплексный ' +
-        'аудит продукта, маркетинга, продаж, сайта, автоматизации и AI-возможностей.\n\n' +
-        'В процессе я попрошу у вас email — на него придёт готовый PDF-отчёт.\n\n' +
-        'Пример: https://example-school.com'
-    );
+    resetSession(ctx.from.id); // resetSession теперь сохраняет savedEmail
+    const session = getSession(ctx.from.id);
+    
+    let welcomeMsg = '👋 Привет! Я AI-аудитор онлайн-школ.\n\n' +
+      'Пришлите мне ссылку на сайт онлайн-школы — и я проведу комплексный ' +
+      'аудит продукта, маркетинга, продаж, сайта, автоматизации и AI-возможностей.\n\n' +
+      'В процессе я попрошу у вас email — на него придёт готовый PDF-отчёт.\n\n' +
+      'Пример: https://example-school.com';
+
+    // 🔴 УМНАЯ ЛОГИКА: упоминаем сохраненный email при старте
+    if (session.savedEmail) {
+      welcomeMsg += `\n\n💡 _Кстати, ваш прошлый email (${session.savedEmail}) сохранен. Мы автоматически предложим использовать его при отправке отчёта._`;
+    }
+
+    await ctx.reply(welcomeMsg, { parse_mode: 'Markdown' });
   });
 
   bot.help(async (ctx) => {
@@ -290,7 +245,8 @@ function createBot() {
       'Как пользоваться:\n' +
         '1. Пришлите ссылку на сайт онлайн-школы.\n' +
         '2. Дождитесь запроса email (это займёт около 30 секунд).\n' +
-        '3. Введите email — отчёт придёт туда в виде PDF, когда анализ завершится.\n\n' +
+        '3. Введите email (или согласитесь использовать сохраненный).\n' +
+        '4. Получите PDF-отчёт на почту.\n\n' +
         'Команда /start — начать заново.'
     );
   });
@@ -329,9 +285,7 @@ function createBot() {
       case 'done': {
         // 🔴 ИСПРАВЛЕНО: защита от конкурентных запусков
         if (session.isProcessing) {
-          await ctx.reply(
-            '⏳ Предыдущий анализ ещё не завершён. Пожалуйста, подождите.'
-          );
+          await ctx.reply('⏳ Предыдущий анализ ещё не завершён. Пожалуйста, подождите.');
           return;
         }
 
@@ -358,17 +312,27 @@ function createBot() {
       }
 
       case 'awaiting_email': {
-        const email = validateEmail(text);
-        if (!email) {
-          await ctx.reply('📧 Похоже, это не похоже на email. Пришлите, пожалуйста, корректный адрес почты.');
-          return;
+        const lowerText = text.toLowerCase();
+
+        // 🔴 УМНАЯ ЛОГИКА: пользователь согласился использовать сохраненный email
+        if (session.savedEmail && (lowerText === 'да' || lowerText === 'yes' || lowerText === session.savedEmail.toLowerCase())) {
+          session.email = session.savedEmail;
+        } else {
+          // Пользователь ввел новый email
+          const newEmail = validateEmail(text);
+          if (!newEmail) {
+            const hint = session.savedEmail ? ` (или напишите "Да", чтобы использовать ${session.savedEmail})` : '';
+            await ctx.reply(`📧 Это не похоже на корректный email. Введите адрес почты${hint}.`);
+            return;
+          }
+          session.email = newEmail;
+          session.savedEmail = newEmail; // 🔴 Запоминаем новый email для будущих запусков
         }
 
-        session.email = email;
         session.state = 'processing_email';
         clearTimers(session);
 
-        await ctx.reply(`Принято ✅ Как только отчёт будет готов — вышлю его на ${email}.`);
+        await ctx.reply(`Принято ✅ Как только отчёт будет готов, я вышлю его на ${session.email}.`);
 
         // Не блокируем event loop — доставка идёт в фоне.
         finalizeAndDeliver(ctx, session).catch((e) =>
