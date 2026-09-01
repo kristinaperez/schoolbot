@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI-аудит онлайн-школы за 5 минут в Telegram | Комплексная диагностика</title>
+<meta name="description" content="Telegram-бот проводит AI-аудит онлайн-школы по 40 разделам — продукт, маркетинг, продажи, сайт, SEO, GEO и автоматизация. Присылаете ссылку — получаете PDF-отчёт на почту." />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="AI-аудит онлайн-школы за 5 минут в Telegram" />
+<meta property="og:description" content="Бот на Claude с доступом в интернет анализирует сайт, соцсети, отзывы и конкурентов вашей школы. Итог — PDF-отчёт с рекомендациями по 40 разделам." />
+<meta property="og:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='630'%3E%3Crect width='1200' height='630' fill='%234f46e5'/%3E%3Ctext x='60' y='300' font-family='Arial' font-size='64' fill='white' font-weight='700'%3EAI-аудит%3C/text%3E%3Ctext x='60' y='380' font-family='Arial' font-size='64' fill='white' font-weight='700'%3Eонлайн-школы%3C/text%3E%3C/svg%3E" />
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%234f46e5'/%3E%3Cpath d='M16 40 L26 26 L34 34 L48 18' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='48' cy='18' r='4' fill='white'/%3E%3C/svg%3E" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper: '#FAFAFC',
+          ink: '#15131F',
+          muted: '#5B5770',
+          line: '#E6E3F2',
+          brand: '#4f46e5',
+          branddark: '#3730a3',
+          brandlight: '#EEF0FF',
+          mint: '#0D9268',
+        },
+      },
+    },
+  };
+</script>
+
+<style>
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+  html { scroll-behavior: smooth; }
+  body { -webkit-font-smoothing: antialiased; }
+
+  @keyframes riseIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .rise-in { animation: riseIn .7s cubic-bezier(.16,.84,.44,1) both; }
+
+  @keyframes modalPop {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .modal-pop { animation: modalPop .3s cubic-bezier(.16,.84,.44,1) both; }
+</style>
+</head>
+
+<body class="bg-paper text-ink font-sans antialiased">
+
+<a href="#start" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-brand focus:text-white focus:px-4 focus:py-2 focus:rounded-md">Начать аудит</a>
+
+<!-- NAV -->
+<header class="border-b border-line bg-white/80 backdrop-blur-md sticky top-0 z-40">
+  <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
+        <svg width="16" height="16" viewBox="0 0 64 64" fill="none"><path d="M16 40 L26 26 L34 34 L48 18" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="18" r="5" fill="white"/></svg>
+      </div>
+      <span class="font-semibold tracking-tight">Аудит школ</span>
+    </div>
+    <a href="https://t.me/OnlineSchoolDiagnosisBot" target="_blank" rel="noopener"
+       class="hidden sm:inline-flex items-center gap-2 text-sm font-medium border border-line rounded-lg px-4 py-2 hover:border-brand hover:text-brand transition-colors">
+      Открыть бота
+    </a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="max-w-6xl mx-auto px-6 pt-16 pb-20 md:pt-24 md:pb-28 grid md:grid-cols-2 gap-14 items-center">
+  <div class="rise-in">
+    <p class="text-brand text-sm font-medium mb-4">Работает прямо в Telegram</p>
+    <h1 class="text-4xl md:text-5xl font-bold tracking-tight leading-[1.08] mb-6">
+      Ваша онлайн-школа сама не знает, где теряет деньги
+    </h1>
+    <p class="text-lg text-muted leading-relaxed mb-8 max-w-md">
+      Введите ссылку на сайт ниже. Мы скопируем её, откроем Telegram, и бот на базе Claude проведёт комплексный аудит по 40 разделам и пришлёт PDF-отчёт на вашу почту.
+    </p>
+    <div class="flex flex-wrap gap-3">
+      <a href="#start" class="inline-flex items-center justify-center bg-brand text-white font-medium rounded-lg px-6 py-3.5 hover:bg-branddark transition-colors shadow-lg shadow-brand/20">
+        Начать аудит бесплатно
+      </a>
+      <a href="#how-it-works" class="inline-flex items-center justify-center border border-line font-medium rounded-lg px-6 py-3.5 hover:border-brand hover:text-brand transition-colors">
+        Как это работает
+      </a>
+    </div>
+    <p class="text-sm text-muted mt-5">Без регистрации · результат на email · бот запомнит вашу почту для следующих запросов</p>
+  </div>
+
+  <div class="rise-in" style="animation-delay:.15s">
+    <div class="relative max-w-sm mx-auto">
+      <div class="absolute -inset-3 bg-brandlight rounded-2xl -z-10 rotate-2"></div>
+      <div class="bg-white border border-line rounded-xl p-6 shadow-sm">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-muted mb-1">Отчёт об аудите</p>
+            <p class="font-semibold">school-example.ru</p>
+          </div>
+          <span class="text-xs font-medium bg-mint/10 text-mint rounded-full px-2.5 py-1">готово</span>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <div class="flex justify-between text-sm mb-1.5"><span>Продукт и оффер</span><span class="text-muted font-serif">7.2</span></div>
+            <div class="h-1.5 bg-line rounded-full overflow-hidden"><div class="h-full bg-brand rounded-full" style="width:72%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-sm mb-1.5"><span>Продажи и воронка</span><span class="text-muted font-serif">4.8</span></div>
+            <div class="h-1.5 bg-line rounded-full overflow-hidden"><div class="h-full bg-brand rounded-full" style="width:48%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-sm mb-1.5"><span>SEO и GEO</span><span class="text-muted font-serif">3.5</span></div>
+            <div class="h-1.5 bg-line rounded-full overflow-hidden"><div class="h-full bg-brand rounded-full" style="width:35%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-sm mb-1.5"><span>Автоматизация</span><span class="text-muted font-serif">6.0</span></div>
+            <div class="h-1.5 bg-line rounded-full overflow-hidden"><div class="h-full bg-brand rounded-full" style="width:60%"></div></div>
+          </div>
+        </div>
+
+        <div class="mt-5 pt-4 border-t border-line text-sm text-muted">
+          + ещё 12 разделов и приоритизированный план действий
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works" class="border-y border-line bg-white">
+  <div class="max-w-6xl mx-auto px-6 py-16 md:py-20">
+    <h2 class="text-2xl md:text-3xl font-bold tracking-tight mb-12 max-w-lg">Как это работает</h2>
+    <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-8 md:gap-6">
+
+      <div class="relative pl-1">
+        <div class="w-9 h-9 rounded-md bg-ink text-white text-sm font-semibold flex items-center justify-center mb-4">1</div>
+        <h3 class="font-semibold mb-1.5">Вводите ссылку</h3>
+        <p class="text-sm text-muted leading-relaxed">Введите адрес сайта вашей школы в форму на этой странице.</p>
+      </div>
+
+      <div class="relative pl-1">
+        <div class="w-9 h-9 rounded-md bg-ink text-white text-sm font-semibold flex items-center justify-center mb-4">2</div>
+        <h3 class="font-semibold mb-1.5">Переход в Telegram</h3>
+        <p class="text-sm text-muted leading-relaxed">Ссылка автоматически скопируется, и мы откроем для вас чат с ботом. Просто нажмите «Вставить».</p>
+      </div>
+
+      <div class="relative pl-1">
+        <div class="w-9 h-9 rounded-md bg-ink text-white text-sm font-semibold flex items-center justify-center mb-4">3</div>
+        <h3 class="font-semibold mb-1.5">AI изучает школу</h3>
+        <p class="text-sm text-muted leading-relaxed">Claude с веб-поиском анализирует сайт, соцсети, отзывы и конкурентов. Бот попросит ваш email (и запомнит его на будущее).</p>
+      </div>
+
+      <div class="relative pl-1">
+        <div class="w-9 h-9 rounded-md bg-ink text-white text-sm font-semibold flex items-center justify-center mb-4">4</div>
+        <h3 class="font-semibold mb-1.5">Получаете PDF</h3>
+        <p class="text-sm text-muted leading-relaxed">Через несколько минут готовый отчёт с оценками и рекомендациями придёт на вашу почту.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- QUICK START FORM (Вместо фейкового демо-чата) -->
+<section id="start" class="max-w-6xl mx-auto px-6 py-20 md:py-28">
+  <div class="text-center max-w-xl mx-auto mb-12">
+    <h2 class="text-2xl md:text-3xl font-bold tracking-tight mb-3">Начните аудит прямо сейчас</h2>
+    <p class="text-muted leading-relaxed">Это не имитация. Введите ссылку, и мы перенаправим вас в Telegram к реальному работающему боту.</p>
+  </div>
+
+  <div class="max-w-lg mx-auto">
+    <form id="auditForm" class="bg-white border border-line rounded-2xl p-2 shadow-lg shadow-brand/5 flex flex-col sm:flex-row gap-2">
+      <input
+        id="siteUrlInput"
+        type="text"
+        inputmode="url"
+        autocomplete="off"
+        placeholder="https://ваша-школа.ru"
+        required
+        class="flex-1 min-w-0 text-sm bg-transparent border-0 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-brand/40 text-ink placeholder-muted"
+      />
+      <button
+        type="submit"
+        class="shrink-0 bg-brand text-white font-medium rounded-xl px-6 py-3.5 hover:bg-branddark transition-colors flex items-center justify-center gap-2"
+      >
+        <span>-> Анализ</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 12L20 4L14 20L11 13L4 12Z" stroke="white" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      </button>
+    </form>
+    <p id="formError" class="text-xs text-red-500 mt-2 text-center hidden">Пожалуйста, введите корректный URL (например, https://school.ru)</p>
+    <p class="text-xs text-muted mt-3 text-center">🔒 Ваши данные не сохраняются на сайте. Обработка происходит безопасно внутри Telegram.</p>
+  </div>
+</section>
+
+<!-- REPORT SECTIONS -->
+<section class="border-y border-line bg-white">
+  <div class="max-w-6xl mx-auto px-6 py-20 md:py-24">
+    <div class="max-w-lg mb-12">
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight mb-3">Что входит в отчёт</h2>
+      <p class="text-muted leading-relaxed">40 подробных пунктов, сгруппированных в 16 блоков — от продукта до плана действий.</p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-line border border-line rounded-xl overflow-hidden">
+      <div class="bg-white p-5"><span class="text-xl">🎯</span><h3 class="font-medium mt-2.5 mb-1">Продукт и оффер</h3><p class="text-sm text-muted">Что предлагает школа и почему это должны купить</p></div>
+      <div class="bg-white p-5"><span class="text-xl">💰</span><h3 class="font-medium mt-2.5 mb-1">Продажи и воронка</h3><p class="text-sm text-muted">Путь от заявки до оплаты и точки потери клиентов</p></div>
+      <div class="bg-white p-5"><span class="text-xl">📈</span><h3 class="font-medium mt-2.5 mb-1">Маркетинг и трафик</h3><p class="text-sm text-muted">Источники лидов и их вероятная эффективность</p></div>
+      <div class="bg-white p-5"><span class="text-xl">🖥️</span><h3 class="font-medium mt-2.5 mb-1">CRO сайта</h3><p class="text-sm text-muted">Конверсия посадочных страниц в заявку</p></div>
+      <div class="bg-white p-5"><span class="text-xl">🔍</span><h3 class="font-medium mt-2.5 mb-1">SEO</h3><p class="text-sm text-muted">Видимость школы в классическом поиске</p></div>
+      <div class="bg-white p-5"><span class="text-xl">🤖</span><h3 class="font-medium mt-2.5 mb-1">GEO</h3><p class="text-sm text-muted">Видимость в ответах ChatGPT, Perplexity и других AI</p></div>
+      <div class="bg-white p-5"><span class="text-xl">⚙️</span><h3 class="font-medium mt-2.5 mb-1">Автоматизация и CRM</h3><p class="text-sm text-muted">Что можно передать ботам и скриптам</p></div>
+      <div class="bg-white p-5"><span class="text-xl">🧠</span><h3 class="font-medium mt-2.5 mb-1">AI и vibe coding</h3><p class="text-sm text-muted">Где школа недоиспользует нейросети</p></div>
+      <div class="bg-white p-5"><span class="text-xl">🔐</span><h3 class="font-medium mt-2.5 mb-1">Безопасность</h3><p class="text-sm text-muted">Уязвимые места в данных и инфраструктуре</p></div>
+      <div class="bg-white p-5"><span class="text-xl">📊</span><h3 class="font-medium mt-2.5 mb-1">Юнит-экономика</h3><p class="text-sm text-muted">Прикидка LTV, CAC и точки безубыточности</p></div>
+      <div class="bg-white p-5"><span class="text-xl">🎓</span><h3 class="font-medium mt-2.5 mb-1">Программа обучения</h3><p class="text-sm text-muted">Структура курса и удержание внимания</p></div>
+      <div class="bg-white p-5"><span class="text-xl">👥</span><h3 class="font-medium mt-2.5 mb-1">Комьюнити и удержание</h3><p class="text-sm text-muted">Что держит учеников до конца курса</p></div>
+      <div class="bg-white p-5"><span class="text-xl">💬</span><h3 class="font-medium mt-2.5 mb-1">Репутация и отзывы</h3><p class="text-sm text-muted">Что говорят о школе в сети</p></div>
+      <div class="bg-white p-5"><span class="text-xl">🏆</span><h3 class="font-medium mt-2.5 mb-1">Конкуренты</h3><p class="text-sm text-muted">Кто рядом и чем они сильнее</p></div>
+      <div class="bg-white p-5"><span class="text-xl">📱</span><h3 class="font-medium mt-2.5 mb-1">Соцсети</h3><p class="text-sm text-muted">Активность и вовлечённость в блогах школы</p></div>
+      <div class="bg-white p-5"><span class="text-xl">🧾</span><h3 class="font-medium mt-2.5 mb-1">План действий</h3><p class="text-sm text-muted">Приоритизированный список, с чего начать</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFITS -->
+<section class="max-w-6xl mx-auto px-6 py-20 md:py-24">
+  <div class="grid md:grid-cols-2 gap-x-16 gap-y-10">
+    <div>
+      <h2 class="text-2xl md:text-3xl font-bold tracking-tight mb-4 max-w-sm">Почему это не просто чат-бот с шаблоном</h2>
+      <p class="text-muted leading-relaxed max-w-sm">Каждый отчёт собирается заново под конкретный сайт — с реальными данными из открытого интернета на момент запроса.</p>
+    </div>
+    <div class="grid sm:grid-cols-2 gap-x-8 gap-y-8">
+      <div>
+        <h3 class="font-semibold mb-1.5">Реальный веб-поиск</h3>
+        <p class="text-sm text-muted leading-relaxed">Claude заходит в интернет и находит актуальные соцсети, отзывы и конкурентов — а не додумывает их.</p>
+      </div>
+      <div>
+        <h3 class="font-semibold mb-1.5">40 разделов анализа</h3>
+        <p class="text-sm text-muted leading-relaxed">От оффера и воронки продаж до GEO-видимости в AI-поисковиках и безопасности данных.</p>
+      </div>
+      <div>
+        <h3 class="font-semibold mb-1.5">Готовый PDF</h3>
+        <p class="text-sm text-muted leading-relaxed">Оформленный отчёт с обложкой и структурой — можно сразу показывать команде или инвестору.</p>
+      </div>
+      <div>
+        <h3 class="font-semibold mb-1.5">Умное запоминание</h3>
+        <p class="text-sm text-muted leading-relaxed">Бот запомнит ваш email после первого аудита. В следующий раз вам не придётся вводить его снова.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="bg-branddark">
+  <div class="max-w-6xl mx-auto px-6 py-16 md:py-20 text-center">
+    <h2 class="text-2xl md:text-3xl font-bold tracking-tight text-white mb-4">Узнайте, что действительно тормозит вашу школу</h2>
+    <p class="text-white/70 max-w-md mx-auto mb-8 leading-relaxed">Бот работает в Telegram, отчёт готов за несколько минут и приходит на почту в формате PDF.</p>
+    <a href="https://t.me/OnlineSchoolDiagnosisBot" target="_blank" rel="noopener"
+       class="inline-flex items-center justify-center bg-white text-branddark font-medium rounded-lg px-7 py-3.5 hover:bg-brandlight transition-colors shadow-lg">
+      Открыть бота в Telegram
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="max-w-6xl mx-auto px-6 py-12 border-t border-line">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-md bg-brand flex items-center justify-center">
+        <svg width="14" height="14" viewBox="0 0 64 64" fill="none"><path d="M16 40 L26 26 L34 34 L48 18" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="18" r="5" fill="white"/></svg>
+      </div>
+      <span class="text-sm font-medium">AI-аудит онлайн-школ</span>
+    </div>
+    <div class="text-sm text-muted">
+      Кристина Перез · <a href="https://t.me/KristinaPerez9" target="_blank" rel="noopener" class="text-brand hover:text-branddark font-medium">t.me/KristinaPerez9</a>
+    </div>
+  </div>
+  <p class="text-xs text-muted mt-6">© 2026. Отчёты формируются автоматически на основе открытых данных из интернета.</p>
+</footer>
+
+<!-- MODAL FOR SUCCESS -->
+<div id="successModal" class="fixed inset-0 bg-ink/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl modal-pop">
+    <div class="w-16 h-16 bg-mint/10 text-mint rounded-full flex items-center justify-center text-3xl mx-auto mb-4">✅</div>
+    <h3 class="text-2xl font-bold text-ink mb-2">Ссылка скопирована!</h3>
+    <p class="text-muted mb-6 leading-relaxed">Сейчас откроется Telegram. Просто <strong>вставьте ссылку</strong> (Ctrl+V или долгое нажатие на поле ввода) в чат с ботом и нажмите отправить.</p>
+    <a id="telegramLink" href="https://t.me/OnlineSchoolDiagnosisBot" target="_blank" rel="noopener" class="block w-full py-4 bg-[#24A1DE] hover:bg-[#1f8bc0] text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 mb-3">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.94z"/></svg>
+      Открыть бота в Telegram
+    </a>
+    <button onclick="closeModal()" class="text-sm text-muted hover:text-ink font-medium transition-colors">Закрыть и скопировать вручную</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  // 🔴 ЗАМЕНИТЕ на реальный юзернейм вашего бота (без @), если он отличается
+  const BOT_USERNAME = 'OnlineSchoolDiagnosisBot'; 
+  
+  const form = document.getElementById('auditForm');
+  const input = document.getElementById('siteUrlInput');
+  const errorMsg = document.getElementById('formError');
+  const modal = document.getElementById('successModal');
+  const tgLink = document.getElementById('telegramLink');
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    let url = input.value.trim();
+    
+    if (!url) {
+      errorMsg.classList.remove('hidden');
+      return;
+    }
+
+    // Добавляем https:// если пользователь забыл
+    if (!/^https?:\/\//i.test(url)) {
+      url = 'https://' + url;
+    }
+
+    // Валидация URL
+    try {
+      new URL(url);
+    } catch (err) {
+      errorMsg.classList.remove('hidden');
+      return;
+    }
+
+    errorMsg.classList.add('hidden');
+
+    // 🔴 МАГИЯ: Копируем URL в буфер обмена
+    navigator.clipboard.writeText(url).then(() => {
+      // Показываем модальное окно с инструкцией
+      tgLink.href = `https://t.me/${BOT_USERNAME}`;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      
+      // Автоматически пробуем открыть Telegram через небольшую задержку 
+      // (чтобы модалка успела отрисоваться, но пользователь всё равно нажмёт кнопку)
+      setTimeout(() => {
+        window.open(`https://t.me/${BOT_USERNAME}`, '_blank');
+      }, 800);
+    }).catch(err => {
+      console.error('Не удалось скопировать:', err);
+      // Fallback: если браузер заблокировал копирование, просто открываем бота
+      window.open(`https://t.me/${BOT_USERNAME}`, '_blank');
+    });
+  });
+
+  // Закрытие модалки
+  window.closeModal = function() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  };
+
+  // Закрытие по клику вне модалки
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) {
+      closeModal();
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
