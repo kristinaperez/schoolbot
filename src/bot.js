@@ -353,6 +353,51 @@ function createBot() {
     }
   });
 
+// 🔴 НОВОЕ: обработка данных из Telegram Mini App (WebApp)
+bot.on('web_app_data', async (ctx) => {
+  const userId = ctx.from.id;
+  const chatId = ctx.chat.id;
+  const rawData = ctx.message.web_app_data.data;
+  
+  let payload;
+  try {
+    payload = JSON.parse(rawData);
+  } catch (e) {
+    console.error('[bot] Неверный JSON из WebApp:', rawData);
+    return;
+  }
+
+  // Обработка команды "analyze_url" из Mini App
+  if (payload.action === 'analyze_url' && payload.url) {
+    const session = getSession(userId);
+
+    // Защита от параллельных запусков
+    if (session.isProcessing) {
+      await ctx.reply('⏳ Предыдущий анализ ещё не завершён. Пожалуйста, подождите.');
+      return;
+    }
+
+    // URL уже валидирован в Mini App, но перепроверяем на всякий случай
+    const url = normalizeUrl(payload.url);
+    if (!url) {
+      await ctx.reply('🔗 Некорректная ссылка. Попробуйте ещё раз через мини-приложение.');
+      return;
+    }
+
+    // Сбрасываем прошлую сессию (но сохраняем savedEmail!)
+    resetSession(userId);
+    const freshSession = getSession(userId);
+
+    await ctx.reply(`🚀 Принято! Начинаю комплексный анализ школы: ${url}\n\nЭто займёт несколько минут...`);
+    startAnalysis(bot, chatId, freshSession, url);
+    return;
+  }
+
+  // Неизвестное действие
+  console.warn('[bot] Неизвестное web_app_data action:', payload.action);
+});
+
+
   // 🔴 ИСПРАВЛЕНО: обработка нетекстовых сообщений
   bot.on(['photo', 'document', 'voice', 'video', 'audio', 'sticker'], async (ctx) => {
     await ctx.reply(

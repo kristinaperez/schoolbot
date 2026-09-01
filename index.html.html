@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>AI-аудит онлайн-школы</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--tg-theme-bg-color, #FAFAFC);
+    color: var(--tg-theme-text-color, #15131F);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 24px 20px 120px;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--tg-theme-button-color, #4f46e5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .logo-text {
+    font-weight: 600;
+    font-size: 15px;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    color: var(--tg-theme-hint-color, #5B5770);
+    font-size: 15px;
+    line-height: 1.5;
+    margin-bottom: 28px;
+  }
+  .features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 32px;
+  }
+  .feature {
+    background: var(--tg-theme-secondary-bg-color, #EEF0FF);
+    color: var(--tg-theme-text-color, #4f46e5);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 999px;
+  }
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 16px;
+    border: 1.5px solid var(--tg-theme-hint-color, #E6E3F2);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--tg-theme-text-color, #15131F);
+    outline: none;
+    transition: border-color .2s;
+  }
+  input:focus {
+    border-color: var(--tg-theme-button-color, #4f46e5);
+  }
+  .hint {
+    font-size: 12px;
+    color: var(--tg-theme-hint-color, #5B5770);
+    margin-top: 8px;
+  }
+  .error {
+    color: #dc2626;
+    font-size: 13px;
+    margin-top: 8px;
+    display: none;
+  }
+  .error.visible { display: block; }
+
+  .bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    background: var(--tg-theme-bg-color, #FAFAFC);
+    border-top: 1px solid var(--tg-theme-hint-color, #E6E3F2);
+  }
+  .analyze-btn {
+    width: 100%;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--tg-theme-button-text-color, #fff);
+    background: var(--tg-theme-button-color, #4f46e5);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: opacity .15s;
+  }
+  .analyze-btn:active { opacity: 0.85; }
+  .analyze-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .success-msg {
+    padding: 16px;
+    background: rgba(13, 146, 104, 0.1);
+    border: 1px solid rgba(13, 146, 104, 0.3);
+    border-radius: 12px;
+    color: #0D9268;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-top: 16px;
+    display: none;
+  }
+  .success-msg.visible { display: block; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="18" height="18" viewBox="0 0 64 64" fill="none">
+        <path d="M16 40 L26 26 L34 34 L48 18" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="48" cy="18" r="5" fill="white"/>
+      </svg>
+    </div>
+    <div class="logo-text">AI-аудит онлайн-школы</div>
+  </div>
+
+  <h1>Найдите точки роста вашей школы</h1>
+  <p class="subtitle">
+    Введите ссылку на сайт — Claude с доступом в интернет проведёт аудит по 40 разделам 
+    и пришлёт PDF-отчёт прямо в этот чат.
+  </p>
+
+  <div class="features">
+    <span class="feature">🎯 Продукт</span>
+    <span class="feature">💰 Продажи</span>
+    <span class="feature">📈 Маркетинг</span>
+    <span class="feature">🤖 AI и автоматизация</span>
+  </div>
+
+  <label for="siteUrl">Сайт школы</label>
+  <input
+    id="siteUrl"
+    type="text"
+    inputmode="url"
+    autocomplete="off"
+    autocapitalize="off"
+    spellcheck="false"
+    placeholder="https://ваша-школа.ru"
+  />
+  <div class="hint">Например: https://skyeng.ru или https://foxford.ru</div>
+  <div id="error" class="error">Введите корректный URL сайта</div>
+
+  <div id="success" class="success-msg">
+    ✅ <strong>Отлично!</strong> Ссылка принята. Сейчас бот начнёт анализ и пришлёт вам PDF-отчёт прямо сюда, в чат.
+  </div>
+</div>
+
+<div class="bottom-bar">
+  <button id="analyzeBtn" class="analyze-btn">
+    <span id="btnText">→ Анализ</span>
+  </button>
+</div>
+
+<script>
+(function () {
+  // Инициализируем WebApp
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand(); // раскрываем на весь экран
+    // Применяем тему Telegram к странице
+    document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#FAFAFC');
+    document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#15131F');
+    document.documentElement.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color || '#5B5770');
+    document.documentElement.style.setProperty('--tg-theme-button-color', tg.themeParams.button_color || '#4f46e5');
+    document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.themeParams.button_text_color || '#fff');
+    document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color || '#EEF0FF');
+  }
+
+  const input = document.getElementById('siteUrl');
+  const btn = document.getElementById('analyzeBtn');
+  const btnText = document.getElementById('btnText');
+  const errorMsg = document.getElementById('error');
+  const successMsg = document.getElementById('success');
+
+  // Форматируем URL: добавляем https://, если забыли
+  function normalizeUrl(raw) {
+    let url = raw.trim();
+    if (!url) return null;
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+      if (!parsed.hostname || parsed.hostname.length < 3) return null;
+      return parsed.toString();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  btn.addEventListener('click', function () {
+    errorMsg.classList.remove('visible');
+    successMsg.classList.remove('visible');
+
+    const url = normalizeUrl(input.value);
+    if (!url) {
+      errorMsg.classList.add('visible');
+      input.focus();
+      // Вибрация для тактильной обратной связи (если поддерживается)
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+      return;
+    }
+
+    // 🔴 КЛЮЧЕВОЙ МОМЕНТ: отправляем URL прямо в бот через Telegram WebApp API
+    btn.disabled = true;
+    btnText.innerHTML = '<span class="spinner"></span> Отправляю...';
+
+    if (tg?.sendData) {
+      // Отправляем JSON с типом действия и URL
+      tg.sendData(JSON.stringify({ action: 'analyze_url', url: url }));
+      
+      // Успех — показываем сообщение
+      successMsg.classList.add('visible');
+      btnText.textContent = '✓ Отправлено в бот';
+      
+      if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      
+      // Закрываем WebApp через 1.5 сек — пользователь возвращается в чат с ботом
+      setTimeout(() => {
+        if (tg.close) tg.close();
+      }, 1500);
+    } else {
+      // Fallback: если WebApp API недоступен (например, тестируем вне Telegram)
+      errorMsg.textContent = 'Откройте это приложение через Telegram-бота';
+      errorMsg.classList.add('visible');
+      btn.disabled = false;
+      btnText.textContent = '→ Анализ';
+    }
+  });
+
+  // Enter в поле = клик по кнопке
+  input.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      btn.click();
+    }
+  });
+
+  // Автофокус на поле ввода
+  setTimeout(() => input.focus(), 100);
+})();
+</script>
+
+</body>
+</html>
